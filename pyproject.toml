@@ -41,6 +41,13 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.11.0"
 ]
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0"
+]
+
+[project.scripts]
+rpt-evaluate = "repititar.evaluate:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
