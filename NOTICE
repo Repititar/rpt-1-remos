@@ -1,0 +1,29 @@
+Repititar — RPT-1 Remos
+Copyright 2026 Fahad Malik
+
+This project is distributed under the Apache License, Version 2.0.
+A copy of the license is available in the LICENSE file and at:
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Third-Party Software
+
+Repititar uses PyTorch for tensor operations, neural network implementation,
+and model training. PyTorch is distributed under its own license.
+
+Project components, third-party dependencies, datasets, and other external
+resources may be subject to separate copyright notices and license terms.
+Users are responsible for reviewing and complying with the applicable
+licenses and usage restrictions.
+
+Model Weights and Datasets
+
+The licensing and usage terms for trained model weights and training datasets
+must be reviewed and documented separately when applicable. This notice
+does not grant rights to third-party datasets or materials.
+
+Trademarks
+
+Repititar, RPT-1 Remos, and associated logos and branding are not granted
+for unrestricted use by the Apache License, Version 2.0. Any applicable
+trademark rights remain with their respective owners.
