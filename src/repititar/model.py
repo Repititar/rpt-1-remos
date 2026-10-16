@@ -15,7 +15,6 @@ class RMSNorm(nn.Module):
         normalized = x * torch.rsqrt(
             x.float().pow(2).mean(dim=-1, keepdim=True) + self.eps
         )
-
         return normalized.to(x.dtype) * self.weight
 
 
@@ -47,7 +46,12 @@ class SelfAttention(nn.Module):
         inv_freq = 1.0 / (
             config.rope_theta
             ** (
-                torch.arange(0, self.head_dim, 2, dtype=torch.float32)
+                torch.arange(
+                    0,
+                    self.head_dim,
+                    2,
+                    dtype=torch.float32,
+                )
                 / self.head_dim
             )
         )
@@ -61,15 +65,24 @@ class SelfAttention(nn.Module):
         q, k, v = qkv.chunk(3, dim=-1)
 
         q = q.view(
-            batch_size, seq_len, self.n_heads, self.head_dim
+            batch_size,
+            seq_len,
+            self.n_heads,
+            self.head_dim,
         ).transpose(1, 2)
 
         k = k.view(
-            batch_size, seq_len, self.n_heads, self.head_dim
+            batch_size,
+            seq_len,
+            self.n_heads,
+            self.head_dim,
         ).transpose(1, 2)
 
         v = v.view(
-            batch_size, seq_len, self.n_heads, self.head_dim
+            batch_size,
+            seq_len,
+            self.n_heads,
+            self.head_dim,
         ).transpose(1, 2)
 
         positions = torch.arange(
@@ -120,10 +133,16 @@ class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
 
-        self.attention_norm = RMSNorm(config.d_model, config.norm_eps)
+        self.attention_norm = RMSNorm(
+            config.d_model,
+            config.norm_eps,
+        )
         self.attention = SelfAttention(config)
 
-        self.feed_forward_norm = RMSNorm(config.d_model, config.norm_eps)
+        self.feed_forward_norm = RMSNorm(
+            config.d_model,
+            config.norm_eps,
+        )
         self.feed_forward = FeedForward(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -148,7 +167,11 @@ class RPTModel(nn.Module):
             for _ in range(config.n_layers)
         )
 
-        self.final_norm = RMSNorm(config.d_model, config.norm_eps)
+        self.final_norm = RMSNorm(
+            config.d_model,
+            config.norm_eps,
+        )
+
         self.lm_head = nn.Linear(
             config.d_model,
             config.vocab_size,
@@ -156,6 +179,8 @@ class RPTModel(nn.Module):
         )
 
         self.apply(self._init_weights)
+
+        # share the input embedding and output projection weights
         self.lm_head.weight = self.token_embedding.weight
 
     @staticmethod
@@ -171,20 +196,28 @@ class RPTModel(nn.Module):
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         if input_ids.ndim != 2:
-            raise ValueError("input_ids must have shape (batch, sequence)")
+            raise ValueError(
+                "input_ids must have shape (batch, sequence)"
+            )
 
-        if input_ids.shape[1] == 0:
-            raise ValueError("input sequence must not be empty")
+        if input_ids.shape[0] == 0 or input_ids.shape[1] == 0:
+            raise ValueError(
+                "input_ids must have a non-empty batch and sequence"
+            )
 
         if input_ids.shape[1] > self.config.max_seq_len:
             raise ValueError("input exceeds max_seq_len")
 
         if input_ids.dtype not in (torch.int32, torch.int64):
-            raise TypeError("input_ids must contain integer token IDs")
+            raise TypeError(
+                "input_ids must contain integer token IDs"
+            )
 
-        if input_ids.numel():
-            if input_ids.min() < 0 or input_ids.max() >= self.config.vocab_size:
-                raise ValueError("input_ids contain an invalid token ID")
+        if (
+            input_ids.min() < 0
+            or input_ids.max() >= self.config.vocab_size
+        ):
+            raise ValueError("input_ids contain an invalid token ID")
 
         x = self.token_embedding(input_ids)
 
@@ -201,8 +234,20 @@ class RPTModel(nn.Module):
         temperature: float = 1.0,
         top_k: int | None = None,
     ) -> torch.Tensor:
-        if input_ids.ndim != 2 or input_ids.shape[1] == 0:
-            raise ValueError("input_ids must be a non-empty 2D tensor")
+        if input_ids.ndim != 2:
+            raise ValueError(
+                "input_ids must have shape (batch, sequence)"
+            )
+
+        if input_ids.shape[0] == 0 or input_ids.shape[1] == 0:
+            raise ValueError(
+                "input_ids must be a non-empty 2D tensor"
+            )
+
+        if input_ids.dtype not in (torch.int32, torch.int64):
+            raise TypeError(
+                "input_ids must contain integer token IDs"
+            )
 
         if max_new_tokens < 0:
             raise ValueError("max_new_tokens must not be negative")
@@ -210,16 +255,20 @@ class RPTModel(nn.Module):
         if temperature <= 0:
             raise ValueError("temperature must be positive")
 
-        if top_k is not None and not 1 <= top_k <= self.config.vocab_size:
-            raise ValueError("top_k must be between 1 and vocab_size")
+        if top_k is not None and not (
+            1 <= top_k <= self.config.vocab_size
+        ):
+            raise ValueError(
+                "top_k must be between 1 and vocab_size"
+            )
 
         device = self.token_embedding.weight.device
         input_ids = input_ids.to(device)
 
-        if input_ids.dtype not in (torch.int32, torch.int64):
-            raise TypeError("input_ids must contain integer token IDs")
-
-        if input_ids.min() < 0 or input_ids.max() >= self.config.vocab_size:
+        if (
+            input_ids.min() < 0
+            or input_ids.max() >= self.config.vocab_size
+        ):
             raise ValueError("input_ids contain an invalid token ID")
 
         if max_new_tokens == 0:
@@ -231,17 +280,33 @@ class RPTModel(nn.Module):
         try:
             for _ in range(max_new_tokens):
                 context = input_ids[:, -self.config.max_seq_len:]
+
                 logits = self(context)[:, -1, :]
                 logits = logits.float() / temperature
 
                 if top_k is not None:
-                    threshold = torch.topk(logits, top_k, dim=-1).values[:, -1:]
-                    logits = logits.masked_fill(logits < threshold, float("-inf"))
+                    threshold = torch.topk(
+                        logits,
+                        top_k,
+                        dim=-1,
+                    ).values[:, -1:]
+
+                    logits = logits.masked_fill(
+                        logits < threshold,
+                        float("-inf"),
+                    )
 
                 probabilities = F.softmax(logits, dim=-1)
-                next_token = torch.multinomial(probabilities, num_samples=1)
 
-                input_ids = torch.cat((input_ids, next_token), dim=1)
+                next_token = torch.multinomial(
+                    probabilities,
+                    num_samples=1,
+                )
+
+                input_ids = torch.cat(
+                    (input_ids, next_token),
+                    dim=1,
+                )
 
         finally:
             self.train(was_training)
