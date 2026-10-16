@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use Repititar in your research, please cite this project."
+type: software
+title: "Repititar: RPT-1 Remos"
+authors:
+  - family-names: "Malik"
+    given-names: "Fahad"
+repository-code: "https://github.com/Repititar/rpt-1-remos"
+license: Apache-2.0
+version: 0.1.0
