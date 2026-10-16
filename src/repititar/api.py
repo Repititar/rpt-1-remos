@@ -44,6 +44,9 @@ def select_device() -> torch.device:
     ):
         raise RuntimeError("MPS was requested but is unavailable")
 
+    if device.type not in {"cpu", "cuda", "mps"}:
+        raise ValueError(f"Unsupported device: {device.type}")
+
     return device
 
 
@@ -61,16 +64,24 @@ def load_model(
         )
 
     config = ModelConfig.load(config_path)
-    model = RPTModel(config).to(device)
+    model = RPTModel(config)
 
     checkpoint = torch.load(
         checkpoint_path,
-        map_location=device,
+        map_location="cpu",
         weights_only=False,
     )
 
+    if not isinstance(checkpoint, dict):
+        raise ValueError("Checkpoint must contain a state dictionary")
+
     state_dict = checkpoint.get("model", checkpoint)
-    model.load_state_dict(state_dict)
+
+    if not isinstance(state_dict, dict):
+        raise ValueError("Checkpoint model state must be a dictionary")
+
+    model.load_state_dict(state_dict, strict=True)
+    model.to(device)
     model.eval()
 
     return model
@@ -161,6 +172,16 @@ def generate(request: GenerateRequest) -> GenerateResponse:
             ),
         )
 
+    if request.top_k is not None:
+        if request.top_k > model.config.vocab_size:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "top_k cannot exceed the model vocabulary size of "
+                    f"{model.config.vocab_size}."
+                ),
+            )
+
     input_ids = torch.tensor(
         [prompt_tokens],
         dtype=torch.long,
@@ -181,13 +202,11 @@ def generate(request: GenerateRequest) -> GenerateResponse:
             detail="Generation failed.",
         ) from exc
 
-    output_tokens = output_ids[0].tolist()
-    generated_tokens = output_tokens[len(prompt_tokens):]
-    generated_text = tokenizer.decode(generated_tokens)
+    output_tokens = output_ids[0, len(prompt_tokens):].tolist()
 
     return GenerateResponse(
         model="rpt-1-remos",
-        generated_text=generated_text,
+        generated_text=tokenizer.decode(output_tokens),
         prompt_bytes=len(prompt_tokens),
-        generated_bytes=len(generated_tokens),
+        generated_bytes=len(output_tokens),
     )
