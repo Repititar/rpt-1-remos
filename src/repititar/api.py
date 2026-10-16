@@ -10,6 +10,7 @@ from repititar.config import ModelConfig
 from repititar.model import RPTModel
 from repititar.tokenizer import ByteTokenizer
 
+
 CHECKPOINT_PATH = Path(
     os.getenv("RPT_CHECKPOINT", "checkpoints/best.pt")
 )
